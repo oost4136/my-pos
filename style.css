@@ -1,0 +1,139 @@
+/* Layout Reset */
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: Arial, sans-serif;
+}
+
+#app-view {
+    display: flex;
+    flex-direction: column;
+    height: 100vh; /* Takes full screen height */
+}
+
+.main-container {
+    display: flex;
+    flex: 1; /* Fills space between header and footer */
+    overflow: hidden; /* Prevents whole page from scrolling weirdly */
+}
+
+/* Products Side */
+.products {
+    flex: 3;
+    overflow-y: auto; /* Only products scroll */
+    padding: 20px;
+    padding-bottom: 100px;
+    background: #f4f4f4;
+}
+
+#product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+/* Cart Side */
+.cart {
+    flex: 1;
+    max-width: 350px;
+    background: white;
+    border-left: 2px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    /* This next line is the "magic" that stops the page from growing */
+    height: calc(100vh - 150px); 
+    position: sticky;
+    top: 0;
+}
+
+#cart-list {
+    flex: 1; /* This takes up all available space */
+    overflow-y: auto; /* This allows items to scroll internally */
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.total-section {
+    padding: 15px;
+    background: #f9f9f9;
+    border-top: 2px solid #ddd;
+}
+
+#checkout-btn {
+    width: 100%;
+    padding: 15px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+    font-size: 18px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+/* Footer (Admin) */
+.admin {
+    background: #333;
+    color: white;
+    padding: 20px;
+    border-top: 4px solid #28a745;
+}
+
+/* Utility */
+.reset-btn {
+    max-width: 300px;
+    display: block;
+    margin: 10px auto;
+}
+
+#back-to-top {
+    position: fixed;
+    bottom: 150px; /* Higher so it doesn't hit the footer */
+    right: 370px; /* To the left of the cart */
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    cursor: pointer;
+    z-index: 2000;
+}
+
+/* --- PRINTING LOGIC --- */
+@media print {
+    /* 1. Hide everything on the page */
+    body * {
+        visibility: hidden;
+    }
+
+    /* 2. Show only the receipt modal */
+    #receipt-modal, #receipt-modal * {
+        visibility: visible;
+    }
+
+    /* 3. Position the receipt at the top-left of the paper */
+    #receipt-modal {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: auto;
+        background: white !important;
+        display: flex !important;
+        justify-content: center;
+    }
+
+    /* 4. Hide all buttons (Print, Close, Void) so they don't appear on the paper */
+    #receipt-modal button {
+        display: none !important;
+    }
+
+    /* 5. Remove shadows and dark backgrounds for a clean print */
+    #receipt-modal div {
+        border: none !important;
+        box-shadow: none !important;
+    }
+}

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Easy POS</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+</head>
+<body>
+
+    <div id="login-view" class="overlay">
+        <div class="login-box">
+            <h1>Store Login</h1>
+            <input type="text" id="shop-name-input" placeholder="Shop Name">
+            <input type="password" id="shop-pin-input" placeholder="PIN (1234)">
+            <button onclick="handleLogin()">Enter Shop</button>
+        </div>
+    </div>
+
+    <div id="app-view" style="display: none;">
+        
+      <header style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: white; border-bottom: 2px solid #eee;">
+    <div style="display: flex; align-items: center; gap: 20px;">
+        <h2 id="display-name" style="margin:0;">My Shop</h2>
+        <div style="background: #e8f5e9; padding: 5px 15px; border-radius: 20px; border: 1px solid #28a745;">
+            <small style="color: #2e7d32; font-weight: bold; display: block; font-size: 10px;">TODAY'S SALES</small>
+            <span id="today-revenue" style="color: #28a745; font-weight: bold; font-size: 18px;">₦0.00</span>
+        </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <select id="currency-select" onchange="changeCurrency()" style="padding: 8px; border-radius: 5px; border: 1px solid #ccc;">
+            <option value="₦">Naira (₦)</option>
+            <option value="$">Dollar ($)</option>
+            <option value="£">Pound (£)</option>
+            <option value="€">Euro (€)</option>
+        </select>
+        <button onclick="handleLogout()" style="background: #f44336; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Logout</button>
+    </div>
+</header>
+
+        <div style="padding: 10px 20px; background: #fff; border-bottom: 1px solid #ddd;">
+            <div id="category-tabs" style="margin-bottom: 10px; display: flex; gap: 10px;">
+                <button onclick="setCategory('All')">All Items</button>
+                <button onclick="setCategory('Drinks')">Drinks</button>
+                <button onclick="setCategory('Food')">Food</button>
+            </div>
+            <input type="text" id="search-input" placeholder="🔍 Search products..." oninput="handleSearch()" style="width: 50%; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+        </div>
+
+        <div class="main-container">
+            <section class="products">
+                <div id="product-grid"></div>
+            </section>
+
+            <aside class="cart">
+                <h3>Order</h3>
+                <div id="cart-list"></div>
+                <div class="total-section">
+                    <strong>Total: <span id="cart-total">$0.00</span></strong>
+                    <button id="checkout-btn" onclick="handleCheckout()">PAY NOW</button>
+                </div>
+            </aside>
+        </div>
+
+        <footer class="admin">
+            <h3>Add New Item</h3>
+            <div class="inputs">
+                <input type="text" id="add-name" placeholder="Item Name">
+                <input type="number" id="add-price" placeholder="Price">
+                <input type="number" id="add-stock" placeholder="Stock Qty">
+                <select id="add-cat" style="padding: 10px; margin: 5px;">
+                    <option value="Food">Food</option>
+                    <option value="Drinks">Drinks</option>
+                </select>
+                <input type="file" id="add-photo-file" accept="image/*" style="color: white;">
+                <button onclick="addNewProduct()">Add to Menu</button>
+            </div>
+            <button onclick="exportToCSV()" class="export-btn">Download Sales Report (CSV)</button>
+          <button onclick="resetSalesData()" class="reset-btn" style="background: #607d8b; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; width: 100%;">
+    ⚠️ Reset Daily Sales History
+</button>
+        </footer>
+    </div>
+
+    <div id="receipt-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
+    <div style="background:white; padding:20px; width:300px; border-radius:10px; text-align:center; font-family: 'Courier New', Courier, monospace;">
+        <h2>RECEIPT</h2>
+        <p id="receipt-shop-name">Store Name</p>
+        <hr>
+        <div id="receipt-items" style="text-align:left; margin:15px 0;"></div>
+        <hr>
+        <h3>TOTAL: <span id="receipt-total">₦0.00</span></h3>
+        
+        <button onclick="window.print()" style="background:#007bff; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; width:100%; margin-bottom:10px;">Print Receipt (PDF)</button>
+        
+        <button onclick="closeReceipt()" style="background:#28a745; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; width:100%; margin-bottom:10px;">Close & New Sale</button>
+        
+        <button onclick="voidTransaction()" style="background:#dc3545; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; width:100%;">Cancel & Void Sale</button>
+    </div>
+</div>
+
+    <script src="app.js"></script>
+    <button id="back-to-top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">↑</button>
+</body>
+</html>
