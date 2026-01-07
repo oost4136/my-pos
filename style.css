@@ -1,191 +1,227 @@
-/* Layout Reset */
+/* Layout & Reset */
 body, html {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    font-family: Arial, sans-serif;
+    margin: 0; padding: 0; height: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-#app-view {
-    display: flex;
-    flex-direction: column;
-    height: 100vh; /* Takes full screen height */
+#app-view { display: flex; flex-direction: column; height: 100vh; }
+
+header {
+    background: #333; color: white; padding: 15px 20px;
+    display: flex; justify-content: space-between; align-items: center;
 }
 
-.main-container {
-    display: flex;
-    flex: 1; /* Fills space between header and footer */
-    overflow: hidden; /* Prevents whole page from scrolling weirdly */
-}
+.revenue-badge { background: #28a745; padding: 5px 10px; border-radius: 5px; font-weight: bold; margin-top: 5px; }
 
-/* Products Side */
-.products {
-    flex: 3;
-    overflow-y: auto; /* Only products scroll */
-    padding: 20px;
-    padding-bottom: 100px;
-    background: #f4f4f4;
-}
+.main-container { display: flex; flex: 1; overflow: hidden; }
 
-#product-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 15px;
-}
+/* Product Grid Area */
+.products { flex: 3; overflow-y: auto; padding: 20px; background: #f4f4f4; position: relative; }
+.category-bar { margin-bottom: 15px; display: flex; gap: 10px; }
+.category-bar button { padding: 8px 15px; cursor: pointer; border-radius: 20px; border: 1px solid #ccc; }
 
-/* Cart Side */
+#product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
+
+/* Fixed Cart Sidebar */
 .cart {
-    flex: 1;
-    max-width: 350px;
-    background: white;
-    border-left: 2px solid #ddd;
-    display: flex;
-    flex-direction: column;
-    /* This next line is the "magic" that stops the page from growing */
-    height: calc(100vh - 150px); 
-    position: sticky;
-    top: 0;
+    flex: 1; max-width: 350px; background: white; border-left: 2px solid #ddd;
+    display: flex; flex-direction: column; height: calc(100vh - 80px); 
 }
+#cart-list { flex: 1; overflow-y: auto; padding: 15px; }
+.total-section { padding: 20px; border-top: 2px solid #ddd; background: #fff; }
 
-#cart-list {
-    flex: 1; /* This takes up all available space */
-    overflow-y: auto; /* This allows items to scroll internally */
-    padding: 10px;
-    border-bottom: 1px solid #eee;
-}
+#checkout-btn { width: 100%; padding: 15px; background: #28a745; color: white; border: none; font-size: 18px; cursor: pointer; border-radius: 5px; }
+.clear-btn { width: 100%; margin-top: 10px; padding: 8px; background: #ffc107; border: none; border-radius: 5px; cursor: pointer; }
 
-.total-section {
-    padding: 15px;
-    background: #f9f9f9;
-    border-top: 2px solid #ddd;
-}
+/* Login */
+.overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #28a745; display: flex; justify-content: center; align-items: center; z-index: 5000; }
+.login-box { background: white; padding: 40px; border-radius: 15px; text-align: center; width: 320px; }
+.login-box input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px; }
 
-#checkout-btn {
-    width: 100%;
-    padding: 15px;
-    background: #28a745;
+/* Modal & Receipt */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+.receipt-card { background: white; padding: 30px; border-radius: 10px; width: 350px; text-align: center; }
+.receipt-card button { width: 100%; margin-top: 10px; padding: 10px; border: none; border-radius: 5px; cursor: pointer; color: white; }
+.btn-print { background: #007bff; }
+.btn-close { background: #28a745; }
+.btn-void { background: #dc3545; }
+
+/* Admin Footer */
+/* Logout Button Styling */
+.logout-btn {
+    background: #d9534f;
     color: white;
     border: none;
+    padding: 8px 15px;
     border-radius: 5px;
-    font-weight: bold;
-    font-size: 18px;
     cursor: pointer;
-    margin-top: 10px;
+    font-size: 14px;
+    transition: background 0.3s;
 }
 
-/* Footer (Admin) */
+.logout-btn:hover {
+    background: #c9302c;
+}
+
+/* Admin Panel Improvements */
 .admin {
-    background: #333;
-    color: white;
-    padding: 20px;
-    border-top: 4px solid #28a745;
+    background: #2c3e50; /* Darker, professional blue-grey */
+    color: #ecf0f1;
+    padding: 25px;
+    border-top: 5px solid #27ae60;
 }
 
-/* Utility */
-.reset-btn {
-    max-width: 300px;
-    display: block;
-    margin: 10px auto;
+.admin h3 {
+    margin-top: 0;
+    color: #27ae60;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
-#back-to-top {
-    position: fixed;
-    bottom: 150px; /* Higher so it doesn't hit the footer */
-    right: 370px; /* To the left of the cart */
-    background: #28a745;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    cursor: pointer;
-    z-index: 2000;
+.admin-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
 }
 
-/* --- PRINTING LOGIC --- */
-@media print {
-    /* 1. Hide everything on the page */
-    body * {
-        visibility: hidden;
-    }
-
-    /* 2. Show only the receipt modal */
-    #receipt-modal, #receipt-modal * {
-        visibility: visible;
-    }
-
-    /* 3. Position the receipt at the top-left of the paper */
-    #receipt-modal {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: auto;
-        background: white !important;
-        display: flex !important;
-        justify-content: center;
-    }
-
-    /* 4. Hide all buttons (Print, Close, Void) so they don't appear on the paper */
-    #receipt-modal button {
-        display: none !important;
-    }
-
-    /* 5. Remove shadows and dark backgrounds for a clean print */
-    #receipt-modal div {
-        border: none !important;
-        box-shadow: none !important;
-    }
-
-}
-/* Login View Styles */
-.overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
+/* Form inputs styling */
+.add-product-form input, 
+.add-product-form select {
     width: 100%;
-    height: 100%;
-    background: #28a745; /* Nice green background */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 5000;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    background: #34495e;
+    color: white;
+    box-sizing: border-box;
 }
 
-.login-box {
-    background: white;
-    padding: 30px;
-    border-radius: 15px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-    text-align: center;
-    width: 300px;
-}
-
-.login-box h1 {
-    margin-bottom: 20px;
-    color: #333;
-}
-
-.login-box input {
+.add-product-form button {
     width: 100%;
     padding: 12px;
-    margin-bottom: 15px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    box-sizing: border-box; /* Ensures padding doesn't break width */
-}
-
-.login-box button {
-    width: 100%;
-    padding: 12px;
-    background: #28a745;
+    background: #27ae60;
     color: white;
     border: none;
-    border-radius: 5px;
+    border-radius: 4px;
     font-weight: bold;
     cursor: pointer;
+    transition: 0.2s;
 }
 
-.login-box button:hover {
-    background: #218838;
+.add-product-form button:hover {
+    background: #2ecc71;
+}
+
+/* Admin Actions (Reports/Reset) */
+.admin-actions label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+/* Update Shop Name input specific styling */
+#edit-shop-name-input {
+    background: #1a252f !important;
+    border: 1px solid #27ae60 !important;
+    color: white;
+}
+
+.admin-actions button {
+    margin-bottom: 10px;
+    transition: transform 0.1s;
+    font-size: 13px;
+    height: 40px; /* Uniform height for alignment */
+}
+
+.admin-actions button:active {
+    transform: scale(0.98);
+}
+
+#back-to-top { position: fixed; bottom: 150px; right: 370px; background: #28a745; color: white; border: none; border-radius: 50%; width: 50px; height: 50px; cursor: pointer; z-index: 2000; }
+
+/* Print Styles */
+@media print {
+    body * { visibility: hidden; }
+    #receipt-modal, #receipt-modal * { visibility: visible; }
+    #receipt-modal { position: absolute; left: 0; top: 0; width: 100%; display: block; background: white; }
+    #receipt-modal button { display: none !important; }
+}
+
+/* Search Bar Styling */
+#search-input {
+    padding: 10px 15px;
+    width: 250px;
+    border: 2px solid #444;
+    border-radius: 20px; /* Rounded pill shape */
+    background: #fff;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+#search-input:focus {
+    border-color: #27ae60; /* Turns green when typing */
+    width: 300px; /* Expands slightly when active */
+    box-shadow: 0 0 8px rgba(39, 174, 96, 0.3);
+}
+
+/* Store Management Section (Right side of Admin) */
+.admin-actions {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.admin-actions h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #3498db;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+}
+
+/* Styling the buttons specifically */
+.admin-actions button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 600;
+    transition: background 0.2s, transform 0.1s;
+}
+
+/* Reset Button - Extra Warning Styling */
+.reset-btn {
+    background: #7f8c8d; /* Grey by default */
+    color: white;
+    margin-top: 20px !important;
+    border: 1px dashed #d9534f !important;
+}
+
+.reset-btn:hover {
+    background: #d9534f !important; /* Turns red only on hover */
+}
+
+/* Shop Logo Upload Input */
+#shop-logo-file {
+    background: transparent;
+    border: 1px solid #555;
+    padding: 5px;
+    border-radius: 4px;
+    width: 100%;
+    margin-top: 5px;
+}
+
+.copyright-footer {
+    text-align: center;
+    padding: 15px;
+    background: #1a252f; /* Darker than the admin panel */
+    color: #7f8c8d;
+    font-size: 12px;
+    border-top: 1px solid #34495e;
+}
+
+.copyright-footer b {
+    color: #bdc3c7;
 }
