@@ -1,35 +1,16 @@
-// 1. DB SETUP
+// 1. DATABASE SETUP
 const db = new Dexie("MyStoreDB");
 db.version(1).stores({
     products: "++id, name, price, stock, category, photo",
-    sales: "++id, timestamp, total, itemCount, isSynced"
+    sales: "++id, timestamp, total, itemCount, items"
 });
 
 let cart = [];
 let currentCategory = "All";
 let searchQuery = "";
-
-// Added currency logic
 let currencySymbol = localStorage.getItem('selectedCurrency') || "₦";
 
-function changeCurrency() {
-    currencySymbol = document.getElementById('currency-select').value;
-    localStorage.setItem('selectedCurrency', currencySymbol);
-    renderProducts();
-    renderCart();
-}
-
-// 2. HELPERS
-function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = error => reject(error);
-    });
-}
-
-// 3. AUTH
+// 2. AUTH & STARTUP
 function handleLogin() {
     const name = document.getElementById('shop-name-input').value;
     const pin = document.getElementById('shop-pin-input').value;
@@ -45,14 +26,30 @@ function handleLogout() {
     location.reload();
 }
 
-// 4. POS LOGIC
+async function startApp() {
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('app-view').style.display = 'block';
+    
+    // Get the name from storage
+    const savedName = localStorage.getItem('shopName') || "My Store";
+    
+    // Update all UI elements
+    document.getElementById('display-name').innerText = savedName;
+    document.getElementById('copyright-shop-name').innerText = savedName;
+    document.getElementById('edit-shop-name-input').value = savedName;
+
+    await db.open();
+    renderProducts();
+    updateDailyTotal();
+    setupScroll();
+}
+
+// 3. PRODUCT LOGIC
 async function renderProducts() {
     const grid = document.getElementById('product-grid');
-    if(!grid) return;
     grid.innerHTML = "";
-    
     let products = await db.products.toArray();
-    
+
     const filtered = products.filter(p => {
         const matchesCat = (currentCategory === "All" || p.category === currentCategory);
         const matchesSearch = p.name.toLowerCase().includes(searchQuery);
@@ -60,316 +57,286 @@ async function renderProducts() {
     });
 
     filtered.forEach(p => {
-        const card = document.createElement('div');
-        card.className = 'p-card';
-        
-        const isLowStock = p.stock > 0 && p.stock < 3;
+        const isLowStock = p.stock > 0 && p.stock <= 5;
         const isOutOfStock = p.stock <= 0;
-        let bgColor = isLowStock ? "#fff3f3" : (isOutOfStock ? "#f0f0f0" : "white");
+        let bgColor = isOutOfStock ? "#f0f0f0" : (isLowStock ? "#fff9c4" : "white");
 
-        card.style = `border:1px solid #ddd; padding:10px; border-radius:10px; background:${bgColor}; text-align:center; cursor:pointer; position:relative; margin:5px;`;
-        
-        const imgUrl = p.photo || "https://via.placeholder.com/100?text=No+Image";
+        const card = document.createElement('div');
+        card.style = `border:1px solid #ddd; padding:10px; border-radius:10px; background:${bgColor}; text-align:center; cursor:pointer; position:relative;`;
         
         card.innerHTML = `
-            <div style="position:absolute; top:5px; right:5px; display:flex; gap:5px;">
-                <button onclick="editPrice(event, ${p.id})" style="background:#ffc107; color:black; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:12px;">✎</button>
-                
-                <button onclick="restockProduct(event, ${p.id})" style="background:#28a745; color:white; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:14px;">+</button>
-                
-                <button onclick="deleteProduct(event, ${p.id})" style="background:red; color:white; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:14px;">×</button>
+            <div style="position:absolute; top:5px; right:5px; display:flex; gap:3px;">
+                <button onclick="editPrice(event, ${p.id})" style="background:#ffc107; border:none; border-radius:50%; width:20px; height:20px;">✎</button>
+                <button onclick="restockProduct(event, ${p.id})" style="background:#28a745; color:white; border:none; border-radius:50%; width:20px; height:20px;">+</button>
+                <button onclick="deleteProduct(event, ${p.id})" style="background:red; color:white; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer;">×</button>
             </div>
-            
-            <img src="${imgUrl}" style="width:100%; height:80px; object-fit:cover; border-radius:5px;">
-            <b style="display:block; margin-top:5px;">${p.name}</b>
-            <span style="color:green;">${currencySymbol}${parseFloat(p.price).toFixed(2)}</span><br>
-            <small style="color: ${isLowStock ? 'red' : '#666'}; font-weight: ${isLowStock ? 'bold' : 'normal'}">
-                ${isOutOfStock ? 'OUT OF STOCK' : 'Stock: ' + p.stock}
-            </small>
+            <img src="${p.photo || 'https://via.placeholder.com/100'}" style="width:100%; height:80px; object-fit:cover; border-radius:5px;">
+            <b>${p.name}</b><br>
+            <span style="color:green;">${currencySymbol}${p.price.toLocaleString()}</span><br>
+            <small>Stock: ${p.stock}</small>
         `;
-        
         card.onclick = () => addToCart(p);
         grid.appendChild(card);
     });
 }
 
+// 4. CART LOGIC
 function addToCart(p) {
     if (p.stock <= 0) return alert("Out of stock");
-    
-    // Check if item already exists in cart
-    const existingItem = cart.find(item => item.id === p.id);
-    
-    if (existingItem) {
-        if (existingItem.quantity < p.stock) {
-            existingItem.quantity += 1;
-        } else {
-            alert("Cannot add more than available stock!");
-        }
+    const existing = cart.find(i => i.id === p.id);
+    if (existing) {
+        if (existing.quantity < p.stock) existing.quantity++;
+        else alert("Low stock");
     } else {
-        // Add new item with quantity 1
-        cart.push({ ...p, quantity: 1 });
+        cart.push({...p, quantity: 1});
     }
     renderCart();
 }
 
 function renderCart() {
     const list = document.getElementById('cart-list');
-    const totalDisp = document.getElementById('cart-total');
     list.innerHTML = "";
     let total = 0;
-
-    cart.forEach((item, index) => {
-        const itemTotal = item.price * item.quantity;
-        total += itemTotal;
-
-        const row = document.createElement('div');
-        row.style = "display:flex; justify-content:space-between; align-items:center; padding: 10px 0; border-bottom: 1px solid #eee;";
-        
-        row.innerHTML = `
-            <div style="flex:1;">
-                <strong style="display:block;">${item.name}</strong>
-                <small style="color:#666;">${currencySymbol}${item.price.toFixed(2)} each</small>
-            </div>
-            
-            <div style="display:flex; align-items:center; gap:8px; flex:1; justify-content:center;">
-                <button onclick="updateCartQty(${index}, -1)" style="width:25px; height:25px; border-radius:5px; border:1px solid #ccc; background:#f9f9f9; cursor:pointer;">-</button>
-                <span style="font-weight:bold; min-width:20px; text-align:center;">${item.quantity}</span>
-                <button onclick="updateCartQty(${index}, 1)" style="width:25px; height:25px; border-radius:5px; border:1px solid #ccc; background:#f9f9f9; cursor:pointer;">+</button>
-            </div>
-
-            <div style="flex:1; text-align:right;">
-                <span style="font-weight:bold;">${currencySymbol}${itemTotal.toFixed(2)}</span>
-                <button onclick="removeFromCart(${index})" style="background:none; border:none; color:#ff4d4d; cursor:pointer; margin-left:10px;">&times;</button>
-            </div>
-        `;
-        list.appendChild(row);
+    cart.forEach((item, idx) => {
+        total += (item.price * item.quantity);
+        list.innerHTML += `
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid #eee; padding-bottom:5px;">
+                <div>${item.name}<br><small>${currencySymbol}${item.price}</small></div>
+                <div>
+                    <button onclick="updateCartQty(${idx},-1)">-</button>
+                    <span>${item.quantity}</span>
+                    <button onclick="updateCartQty(${idx},1)">+</button>
+                </div>
+                <b>${currencySymbol}${(item.price * item.quantity).toLocaleString()}</b>
+            </div>`;
     });
-    totalDisp.innerText = currencySymbol + total.toFixed(2);
+    document.getElementById('cart-total').innerText = currencySymbol + total.toLocaleString();
 }
 
-function removeFromCart(i) { cart.splice(i, 1); renderCart(); }
-
-function handleSearch() {
-    searchQuery = document.getElementById('search-input').value.toLowerCase();
-    renderProducts();
+function updateCartQty(idx, change) {
+    cart[idx].quantity += change;
+    if (cart[idx].quantity <= 0) cart.splice(idx, 1);
+    renderCart();
 }
 
-function setCategory(cat) {
-    currentCategory = cat;
-    renderProducts();
-}
+function clearFullCart() { if(confirm("Clear order?")) { cart = []; renderCart(); } }
 
-// 5. ADMIN & DATABASE
-
+// 5. CHECKOUT & REPORTS
 async function handleCheckout() {
     if (cart.length === 0) return;
-
     const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    
+    // Receipt UI
+    showReceiptLogo();
     const receiptItems = document.getElementById('receipt-items');
-    receiptItems.innerHTML = "";
-
+    receiptItems.innerHTML = `<small>${new Date().toLocaleString()}</small><br><br>`;
+    
     for (let item of cart) {
-        // Show quantity on receipt
-        receiptItems.innerHTML += `
-            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                <span>${item.name} (x${item.quantity})</span>
-                <span>${currencySymbol}${(item.price * item.quantity).toFixed(2)}</span>
-            </div>`;
-        
-        // Update stock by the quantity sold
+        receiptItems.innerHTML += `<div style="display:flex; justify-content:space-between;">
+            <span>${item.name} x${item.quantity}</span>
+            <span>${currencySymbol}${(item.price * item.quantity).toLocaleString()}</span>
+        </div>`;
         const dbItem = await db.products.get(item.id);
-        if (dbItem) {
-            await db.products.update(item.id, { stock: dbItem.stock - item.quantity });
-        }
+        await db.products.update(item.id, { stock: dbItem.stock - item.quantity });
     }
 
-    await db.sales.add({ 
-        timestamp: Date.now(), 
-        total: total, 
-        itemCount: cart.reduce((sum, item) => sum + item.quantity, 0)
+    await db.sales.add({
+        timestamp: Date.now(),
+        total: total,
+        items: cart.map(i => ({name: i.name, price: i.price, quantity: i.quantity}))
     });
 
-    document.getElementById('receipt-total').innerText = `${currencySymbol}${total.toFixed(2)}`;
+    document.getElementById('receipt-total').innerText = currencySymbol + total.toLocaleString();
     document.getElementById('receipt-modal').style.display = 'flex';
     updateDailyTotal();
 }
 
-function closeReceipt() {
-    document.getElementById('receipt-modal').style.display = 'none';
-    cart = [];
-    renderCart();
-    renderProducts();
+async function voidTransaction() {
+    if (!confirm("Void this sale?")) return;
+    const lastSale = await db.sales.orderBy('id').last();
+    for (let item of cart) {
+        const dbItem = await db.products.get(item.id);
+        await db.products.update(item.id, { stock: dbItem.stock + item.quantity });
+    }
+    if (lastSale) await db.sales.delete(lastSale.id);
+    closeReceipt();
 }
 
+async function deleteProduct(event, id) {
+    // Stop the click from adding the item to the cart
+    event.stopPropagation();
+    
+    if (confirm("Are you sure you want to delete this product? This cannot be undone.")) {
+        try {
+            await db.products.delete(id);
+            renderProducts(); // Refresh the grid
+        } catch (error) {
+            console.error("Error deleting product:", error);
+            alert("Could not delete product.");
+        }
+    }
+}
+
+function closeReceipt() {
+    document.getElementById('receipt-modal').style.display = 'none';
+    cart = []; renderCart(); renderProducts(); updateDailyTotal();
+}
+
+// 6. EXPORTS
+async function exportToCSV() {
+    const sales = await db.sales.toArray();
+    if (sales.length === 0) return alert("No sales data to export.");
+
+    // CSV Headers
+    let csv = "Date,Time,Item Name,Item Price,Quantity,Subtotal\n";
+    let grandTotal = 0;
+
+    sales.forEach(sale => {
+        const date = new Date(sale.timestamp).toLocaleDateString();
+        const time = new Date(sale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        if (sale.items && sale.items.length > 0) {
+            sale.items.forEach(item => {
+                const subtotal = item.price * item.quantity;
+                grandTotal += subtotal;
+                
+                // Clean the name of any commas to avoid breaking CSV columns
+                const cleanName = item.name.replace(/,/g, "");
+                
+                csv += `${date},${time},${cleanName},${item.price},${item.quantity},${subtotal}\n`;
+            });
+        }
+    });
+
+    // Add a blank line and then the overall total
+    csv += `\n,,,OVERALL TOTAL,,${grandTotal}\n`;
+
+    // Download Logic
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", `Detailed_Sales_${new Date().toLocaleDateString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+async function exportStockReport() {
+    const products = await db.products.toArray();
+    let csv = "Product,Price,Stock,Status\n";
+    products.forEach(p => {
+        csv += `${p.name},${p.price},${p.stock},${p.stock <= 5 ? 'LOW' : 'OK'}\n`;
+    });
+    downloadCSV(csv, "Stock_Report.csv");
+}
+
+function downloadCSV(csv, filename) {
+    const blob = new Blob([csv], {type: 'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename; a.click();
+}
+
+// 7. HELPERS
 async function addNewProduct() {
     const name = document.getElementById('add-name').value;
     const price = parseFloat(document.getElementById('add-price').value);
     const stock = parseInt(document.getElementById('add-stock').value);
-    const cat = document.getElementById('add-cat').value;
+    const category = document.getElementById('add-cat').value;
     const file = document.getElementById('add-photo-file').files[0];
-    
-    let photo = "";
-    if (file) photo = await fileToBase64(file);
-
+    let photo = file ? await fileToBase64(file) : "";
     if (name && price) {
-        await db.products.add({ name, price, stock, category: cat, photo });
+        await db.products.add({ name, price, stock, category, photo });
         renderProducts();
     }
 }
 
-async function deleteProduct(e, id) {
+async function editPrice(e, id) {
     e.stopPropagation();
-    if(confirm("Delete?")) { await db.products.delete(id); renderProducts(); }
+    const p = await db.products.get(id);
+    const np = prompt("New Price:", p.price);
+    if (np) { await db.products.update(id, {price: parseFloat(np)}); renderProducts(); }
 }
 
-function exportToCSV() {
-    db.sales.toArray().then(sales => {
-        let csv = "Date,Total\n";
-        sales.forEach(s => csv += `${new Date(s.timestamp).toLocaleDateString()},${s.total}\n`);
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
-        a.download = 'sales.csv'; a.click();
-    });
+async function restockProduct(e, id) {
+    e.stopPropagation();
+    const p = await db.products.get(id);
+    const amt = prompt("How many items received?", "10");
+    if (amt) { await db.products.update(id, {stock: p.stock + parseInt(amt)}); renderProducts(); }
 }
 
-// 6. START
-
-    async function startApp() {
-    document.getElementById('login-view').style.display = 'none';
-    document.getElementById('app-view').style.display = 'block';
-    document.getElementById('display-name').innerText = localStorage.getItem('shopName');
-    
-    if(document.getElementById('currency-select')) {
-        document.getElementById('currency-select').value = currencySymbol;
-    }
-
-    await db.open();
-    renderProducts();
-    updateDailyTotal(); // <--- Add this line here
-}
-
-async function restockProduct(event, id) {
-    event.stopPropagation();
-    const product = await db.products.get(id);
-    const amount = prompt(`Restocking "${product.name}". How many items did you receive?`, "10");
-    if (amount !== null && !isNaN(amount)) {
-        const newStock = product.stock + parseInt(amount);
-        await db.products.update(id, { stock: newStock });
-        renderProducts();
-    }
-}
-
-    async function updateDailyTotal() {
+async function updateDailyTotal() {
     const today = new Date().setHours(0,0,0,0);
-    const allSales = await db.sales.toArray();
-    
-    const todaysSales = allSales.filter(sale => sale.timestamp >= today);
-    
-    // Using Number() ensures we don't accidentally "glue" text together
-    const totalRevenue = todaysSales.reduce((sum, sale) => sum + Number(sale.total), 0);
-    
-    const revenueDisplay = document.getElementById('today-revenue');
-    if (revenueDisplay) {
-        revenueDisplay.innerText = `${currencySymbol}${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-    }
+    const sales = await db.sales.toArray();
+    const revenue = sales.filter(s => s.timestamp >= today).reduce((a, b) => a + b.total, 0);
+    document.getElementById('today-revenue').innerText = currencySymbol + revenue.toLocaleString();
 }
 
-async function resetSalesData() {
-    const confirmReset = confirm("Are you sure? This will delete all sales history and reset today's total to ₦0.00. Your products will stay safe.");
-    
-    if (confirmReset) {
-        // Clear only the sales table
-        await db.sales.clear();
-        
-        // Refresh the daily total display
-        updateDailyTotal();
-        
-        alert("Sales history cleared successfully!");
-    }
+function fileToBase64(file) {
+    return new Promise(r => { const rd = new FileReader(); rd.readAsDataURL(file); rd.onload = () => r(rd.result); });
 }
 
-    function updateCartQty(index, change) {
-    const item = cart[index];
-    const newQty = item.quantity + change;
-
-    // 1. If quantity goes to 0, remove it from the cart
-    if (newQty <= 0) {
-        removeFromCart(index);
-    } 
-    // 2. Prevent adding more than what is in stock
-    else if (newQty > item.stock) {
-        alert("Not enough stock available!");
-    } 
-    // 3. Otherwise, update the quantity and refresh the cart display
-    else {
-        item.quantity = newQty;
-        renderCart();
-    }
+function showReceiptLogo() {
+    const logo = localStorage.getItem('shopLogo');
+    const img = document.getElementById('receipt-logo-display');
+    if(logo) { img.src = logo; img.style.display = 'block'; }
 }
 
-    // 1. Function to Change Product Price
-async function editPrice(event, id) {
-    event.stopPropagation();
-    const product = await db.products.get(id);
-    const newPrice = prompt(`Enter new price for ${product.name}:`, product.price);
-    
-    if (newPrice !== null && !isNaN(newPrice) && newPrice > 0) {
-        await db.products.update(id, { price: parseFloat(newPrice) });
-        renderProducts();
-        renderCart(); // Update cart in case the item is already there
-    }
+async function uploadLogo() {
+    const file = document.getElementById('shop-logo-file').files[0];
+    if(file) { localStorage.setItem('shopLogo', await fileToBase64(file)); alert("Logo Saved"); }
 }
 
-// 2. Back to Top Visibility Logic
-window.onscroll = function() {
-    const btn = document.getElementById("back-to-top");
-    if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
-        btn.style.display = "block";
+function handleSearch() { searchQuery = document.getElementById('search-input').value.toLowerCase(); renderProducts(); }
+function setCategory(c) { currentCategory = c; renderProducts(); }
+
+function setupScroll() {
+    const area = document.querySelector('.products');
+    const btn = document.getElementById('back-to-top');
+    area.onscroll = () => btn.style.display = area.scrollTop > 300 ? 'block' : 'none';
+}
+
+function toggleGuide() {
+    const guide = document.getElementById('guide-modal');
+    if (guide.style.display === 'none' || guide.style.display === '') {
+        guide.style.display = 'flex';
     } else {
-        btn.style.display = "none";
+        guide.style.display = 'none';
     }
+}
 
-    // This listens to the Products area scrolling instead of the whole window
-document.addEventListener('DOMContentLoaded', () => {
-    const productsArea = document.querySelector('.products');
-    const btn = document.getElementById("back-to-top");
-
-    if(productsArea) {
-        productsArea.onscroll = function() {
-            if (productsArea.scrollTop > 300) {
-                btn.style.display = "block";
-            } else {
-                btn.style.display = "none";
-            }
-        };
-    }
-});
+function changeCurrency() {
+    const selector = document.getElementById('currency-select');
+    currencySymbol = selector.value;
+    localStorage.setItem('selectedCurrency', currencySymbol);
     
-};
-
-async function voidTransaction() {
-    if (!confirm("Are you sure you want to void this sale? Items will return to stock.")) return;
-
-    // 1. Put stock back
-    for (let item of cart) {
-        const dbItem = await db.products.get(item.id);
-        if (dbItem) {
-            await db.products.update(item.id, { stock: dbItem.stock + item.quantity });
-        }
-    }
-
-    // 2. Delete last sale record
-    const lastSale = await db.sales.orderBy('id').last();
-    if (lastSale) {
-        await db.sales.delete(lastSale.id);
-    }
-
-    // 3. Reset UI
-    document.getElementById('receipt-modal').style.display = 'none';
-    cart = []; // Clear cart after voiding
+    // Refresh everything to show the new symbol
     renderProducts();
     renderCart();
     updateDailyTotal();
 }
 
-if (localStorage.getItem('isLoggedIn') === 'true') { startApp(); }  
+function updateShopName() {
+    const newName = document.getElementById('edit-shop-name-input').value;
+    
+    if (newName.trim() === "") {
+        alert("Please enter a valid name");
+        return;
+    }
+
+    // 1. Save to memory
+    localStorage.setItem('shopName', newName);
+
+    // 2. Update Header
+    document.getElementById('display-name').innerText = newName;
+
+    // 3. Update Copyright
+    document.getElementById('copyright-shop-name').innerText = newName;
+
+    // 4. Update Receipt Title (for the next sale)
+    document.getElementById('receipt-shop-name').innerText = newName;
+
+    alert("Shop name updated to: " + newName);
+}
+
+if (localStorage.getItem('isLoggedIn') === 'true') startApp();
